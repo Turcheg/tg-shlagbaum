@@ -59,12 +59,26 @@ export default class App {
       this.l.trace({
         msg: 'Incoming /start command',
       });
-      return ctx.reply(
-        `ЗДРАСТВУЙТЕ!\n` +
-          `АССАЛОМУ АЛАЙКУМ!\n---\n` +
-          `/open - открыть шлагбаум/шлагбумни очиш\n` +
-          `/close - закрыть шлагбаум/шлагбумни ёпиш\n` +
-          `/myid - узнать персональный номер/шахсий номеризни билиш\n`
+      return ctx.replyWithHTML(
+        `ЗДРАСТВУЙТЕ!<br />` +
+          `АССАЛОМУ АЛАЙКУМ!<br />---<br />` +
+          `/open - открыть шлагбаум/шлагбумни очиш<br />` +
+          `/close - закрыть шлагбаум/шлагбумни ёпиш<br />` +
+          `/myid - узнать персональный номер/шахсий номеризни билиш<br />` +
+          `<b>ВАЖНО!!! Перед закрытием визуально убедитесь, что нет помех.< /b>`
+      );
+    });
+    this.bot.command('help', (ctx) => {
+      this.l.trace({
+        msg: 'Incoming /help command',
+        ctx,
+      });
+      ctx.<br />(
+        `Этот бот нужен для открытия и закрытия шлагбаума<br />`
+        `/open - открыть шлагбаум/шлагбумни очиш<br />` +
+        `/close - закрыть шлагбаум/шлагбумни ёпиш<br />` +
+        `/myid - узнать персональный номер/шахсий номеризни билиш<br />` +
+        `<b>ВАЖНО!!! Перед закрытием визуально убедитесь, что нет помех.</b>`
       );
     });
     this.bot.command('myid', (ctx) => {
@@ -72,7 +86,7 @@ export default class App {
         msg: 'Incoming /myid command',
         ctx,
       });
-      ctx.reply(`Ваш номер: ${ctx.message.from.id}`);
+      ctx.replyWithHTML(`Ваш номер: <b>${ctx.message.from.id}</b>`);
     });
     this.bot.command('open', async (ctx) => {
       this.l.trace({
@@ -80,7 +94,7 @@ export default class App {
         ctx,
       });
       if (!this.isAuthorized(ctx.message.from.id)) {
-        return ctx.reply(`У вас нет доступа :( (${ctx.message.from.id})`);
+        return ctx.replyWithHTML(`У вас нет доступа :( (<i>${ctx.message.from.id}</i>)`);
       }
       this.openGate(ctx);
     });
@@ -90,7 +104,7 @@ export default class App {
         ctx,
       });
       if (!this.isAuthorized(ctx.message.from.id)) {
-        return ctx.reply(`У вас нет доступа :( (${ctx.message.from.id})`);
+        return ctx.replyWithHTML(`У вас нет доступа :( (<i>${ctx.message.from.id}</i>)`);
       }
       this.closeGate(ctx);
     });
@@ -177,7 +191,7 @@ export default class App {
         this.l.info({
           msg: 'Out of attemts - send busy to user',
         });
-        return ctx.reply('Сейчас шлагбаум занят');
+        return ctx.reply('Сейчас шлагбаум занят, повторите позже');
       }
     }
     this.state.ewelink.status = 'transmitting';
@@ -189,7 +203,7 @@ export default class App {
         payload,
       });
       await ws.send(payload);
-      return ctx.reply('Готово');
+      return ctx.reply('Команда отправлена');
     } catch (e) {
       let e_msg = '';
       l.error({
