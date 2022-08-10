@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
     "test": "node --inspect-brk='0.0.0.0' test.js"
   },
   "author": "",
@@ -11,7 +12,8 @@
   "dependencies": {
     "ewelink-api": "^3.1.1",
     "pino": "^8.4.0",
-    "telegraf": "^4.8.6"
+    "telegraf": "^4.8.6",
+    "uuid": "^8.3.2"
   },
   "prettier": {
     "trailingComma": "es5",

@@ -1,5 +1,7 @@
 import { delay } from './utils.js';
-class App {
+import { v4 as uuidv4 } from 'uuid';
+
+export default class App {
   state = {};
   config;
   l;
@@ -34,6 +36,10 @@ class App {
       .map((s) => s * 1);
   }
 
+  async run() {
+    return;
+  }
+
   async init() {
     await Promise.all([this.initEwelink(), this.initBot()]);
     process.once('SIGINT', () => {
@@ -62,15 +68,27 @@ class App {
       );
     });
     this.bot.command('myid', (ctx) => {
+      this.l.trace({
+        msg: 'Incoming /myid command',
+        ctx,
+      });
       ctx.reply(`Ваш номер: ${ctx.message.from.id}`);
     });
     this.bot.command('open', async (ctx) => {
+      this.l.trace({
+        msg: 'Incoming /open command',
+        ctx,
+      });
       if (!this.isAuthorized(ctx.message.from.id)) {
         return ctx.reply(`У вас нет доступа :( (${ctx.message.from.id})`);
       }
       this.openGate(ctx);
     });
     this.bot.command('close', async (ctx) => {
+      this.l.trace({
+        msg: 'Incoming /close command',
+        ctx,
+      });
       if (!this.isAuthorized(ctx.message.from.id)) {
         return ctx.reply(`У вас нет доступа :( (${ctx.message.from.id})`);
       }
@@ -79,9 +97,17 @@ class App {
   }
 
   async openGate(ctx) {
+    this.l.trace({
+      msg: 'open Gate initiated',
+      ctx,
+    });
     const socketPromise = this.getSocket();
     let apikey = this.ewelink.apiKey;
     if (!apikey) {
+      this.l.trace({
+        msg: 'apikey is undefined, try to get new',
+        ctx,
+      });
       await socketPromise;
       apikey = this.ewelink.apiKey;
     }
@@ -101,9 +127,17 @@ class App {
   }
 
   async closeGate(ctx) {
+    this.l.trace({
+      msg: 'close Gate initiated',
+      ctx,
+    });
     const socketPromise = this.getSocket();
     let apikey = this.ewelink.apiKey;
     if (!apikey) {
+      this.l.trace({
+        msg: 'apikey is undefined, try to get new',
+        ctx,
+      });
       await socketPromise;
       apikey = this.ewelink.apiKey;
     }
@@ -123,20 +157,45 @@ class App {
   }
 
   async ewelinkCommand(ctx, payload) {
+    const l = this.l.child({
+      job_id: uuidv4(),
+    });
+    l.info({
+      msg: 'Ewelink command initiated',
+      ctx,
+      payload,
+    });
+
     let i = 0;
+
     while (this.state.ewelink.status === 'transmitting') {
+      l.info({
+        msg: 'It busy',
+      });
       await delay(100);
       if (++i > 20) {
-        ctx.reply('Сейчас шлагбаум занят');
+        this.l.info({
+          msg: 'Out of attemts - send busy to user',
+        });
+        return ctx.reply('Сейчас шлагбаум занят');
       }
     }
     this.state.ewelink.status = 'transmitting';
     ctx.replyWithChatAction('typing');
     const ws = await this.getSocket();
     try {
+      l.info({
+        msg: 'Sending to device',
+        payload,
+      });
       await ws.send(payload);
       return ctx.reply('Готово');
     } catch (e) {
+      let e_msg = '';
+      l.error({
+        msg: 'Exception',
+        e,
+      });
       return ctx.reply('Не могу, что-то не так');
     } finally {
       this.state.ewelink.status = 'available';

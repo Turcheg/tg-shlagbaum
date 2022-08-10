@@ -13,5 +13,8 @@ export default {
     token: process.env.BOT_TOKEN,
     chat_id: process.env.CHAT_ID,
   },
-  users: process.env.USERS
-}
+  users: process.env.USERS,
+  logger: {
+    level: process.env.LOG_LEVEL,
+  },
+};
