@@ -1,6 +1,7 @@
-import { delay } from './utils.js';
+import { delay, logctx } from './utils.js';
 import { v4 as uuidv4 } from 'uuid';
-
+import ewelink from 'ewelink-api';
+import { Telegraf } from 'telegraf';
 export default class App {
   state = {};
   config;
@@ -37,6 +38,7 @@ export default class App {
   }
 
   async run() {
+    await this.bot.launch();
     return;
   }
 
@@ -44,10 +46,16 @@ export default class App {
     await Promise.all([this.initEwelink(), this.initBot()]);
     process.once('SIGINT', () => {
       this.bot.stop('SIGINT');
+      if (this.ewelink_ws) {
+        this.ewelink_ws.close();
+      }
       this;
     });
     process.once('SIGTERM', () => {
       this.bot.stop('SIGTERM');
+      if (this.ewelink_ws) {
+        this.ewelink_ws.close();
+      }
     });
 
     this.inited = true;
@@ -60,51 +68,55 @@ export default class App {
         msg: 'Incoming /start command',
       });
       return ctx.replyWithHTML(
-        `ЗДРАСТВУЙТЕ!<br />` +
-          `АССАЛОМУ АЛАЙКУМ!<br />---<br />` +
-          `/open - открыть шлагбаум/шлагбумни очиш<br />` +
-          `/close - закрыть шлагбаум/шлагбумни ёпиш<br />` +
-          `/myid - узнать персональный номер/шахсий номеризни билиш<br />` +
+        `ЗДРАСТВУЙТЕ!\n` +
+          `АССАЛОМУ АЛАЙКУМ!\n---\n` +
+          `/open - открыть шлагбаум/шлагбумни очиш\n` +
+          `/close - закрыть шлагбаум/шлагбумни ёпиш\n` +
+          `/myid - узнать персональный номер/шахсий номеризни билиш\n` +
           `<b>ВАЖНО!!! Перед закрытием визуально убедитесь, что нет помех.< /b>`
       );
     });
     this.bot.command('help', (ctx) => {
       this.l.trace({
         msg: 'Incoming /help command',
-        ctx,
+        ctx: logctx(ctx),
       });
-      ctx.<br />(
-        `Этот бот нужен для открытия и закрытия шлагбаума<br />`
-        `/open - открыть шлагбаум/шлагбумни очиш<br />` +
-        `/close - закрыть шлагбаум/шлагбумни ёпиш<br />` +
-        `/myid - узнать персональный номер/шахсий номеризни билиш<br />` +
-        `<b>ВАЖНО!!! Перед закрытием визуально убедитесь, что нет помех.</b>`
+      ctx.replyWithHTML(
+        `Этот бот нужен для открытия и закрытия шлагбаума\n` +
+          `/open - открыть шлагбаум/шлагбумни очиш\n` +
+          `/close - закрыть шлагбаум/шлагбумни ёпиш\n` +
+          `/myid - узнать персональный номер/шахсий номеризни билиш\n` +
+          `<b>ВАЖНО!!! Перед закрытием визуально убедитесь, что нет помех.</b>`
       );
     });
     this.bot.command('myid', (ctx) => {
       this.l.trace({
         msg: 'Incoming /myid command',
-        ctx,
+        ctx: logctx(ctx),
       });
       ctx.replyWithHTML(`Ваш номер: <b>${ctx.message.from.id}</b>`);
     });
     this.bot.command('open', async (ctx) => {
       this.l.trace({
         msg: 'Incoming /open command',
-        ctx,
+        ctx: logctx(ctx),
       });
       if (!this.isAuthorized(ctx.message.from.id)) {
-        return ctx.replyWithHTML(`У вас нет доступа :( (<i>${ctx.message.from.id}</i>)`);
+        return ctx.replyWithHTML(
+          `У вас нет доступа :( (<i>${ctx.message.from.id}</i>)`
+        );
       }
       this.openGate(ctx);
     });
     this.bot.command('close', async (ctx) => {
       this.l.trace({
         msg: 'Incoming /close command',
-        ctx,
+        ctx: logctx(ctx),
       });
       if (!this.isAuthorized(ctx.message.from.id)) {
-        return ctx.replyWithHTML(`У вас нет доступа :( (<i>${ctx.message.from.id}</i>)`);
+        return ctx.replyWithHTML(
+          `У вас нет доступа :( (<i>${ctx.message.from.id}</i>)`
+        );
       }
       this.closeGate(ctx);
     });
@@ -113,14 +125,14 @@ export default class App {
   async openGate(ctx) {
     this.l.trace({
       msg: 'open Gate initiated',
-      ctx,
+      ctx: logctx(ctx),
     });
     const socketPromise = this.getSocket();
     let apikey = this.ewelink.apiKey;
     if (!apikey) {
       this.l.trace({
         msg: 'apikey is undefined, try to get new',
-        ctx,
+        ctx: logctx(ctx),
       });
       await socketPromise;
       apikey = this.ewelink.apiKey;
@@ -143,14 +155,14 @@ export default class App {
   async closeGate(ctx) {
     this.l.trace({
       msg: 'close Gate initiated',
-      ctx,
+      ctx: logctx(ctx),
     });
     const socketPromise = this.getSocket();
     let apikey = this.ewelink.apiKey;
     if (!apikey) {
       this.l.trace({
         msg: 'apikey is undefined, try to get new',
-        ctx,
+        ctx: logctx(ctx),
       });
       await socketPromise;
       apikey = this.ewelink.apiKey;
@@ -176,7 +188,7 @@ export default class App {
     });
     l.info({
       msg: 'Ewelink command initiated',
-      ctx,
+      ctx: logctx(ctx),
       payload,
     });
 
@@ -202,10 +214,9 @@ export default class App {
         msg: 'Sending to device',
         payload,
       });
-      await ws.send(payload);
+      await ws.send(JSON.stringify(payload));
       return ctx.reply('Команда отправлена');
     } catch (e) {
-      let e_msg = '';
       l.error({
         msg: 'Exception',
         e,
@@ -234,19 +245,17 @@ export default class App {
     this.state.ewelink.status = 'initing';
     /* get all devices */
     await this.ewelink.getDevices();
-    if (this.ewelink_ws) {
-      await this.ewelink_ws.close();
-      this.ewelink_ws = null;
+    if (!this.ewelink_ws) {
+      this.ewelink_ws = await this.ewelink.openWebSocket(
+        this.ewelinkWsCallback.bind(this)
+      );
+      this.ewelink_ws.onError.addListener(() => {
+        this.state.ewelink.status = 'error';
+      });
+      this.ewelink_ws.onClose.addListener(() => {
+        this.state.ewelink.status = 'closed';
+      });
     }
-    this.ewelink_ws = await this.ewelink.openWebSocket(
-      this.ewelinkWsCallback.bind(this)
-    );
-    this.ewelink_ws.onError.addEventListener(() => {
-      this.state.ewelink.status = 'error';
-    });
-    this.ewelink_ws.onClose.addEventListener(() => {
-      this.state.ewelink.status = 'closed';
-    });
     this.state.ewelink.status = 'active';
     return;
   }
@@ -262,7 +271,7 @@ export default class App {
   }
 
   ewelinkWsCallback(message) {
-    this.logger.info({
+    this.l.info({
       msg: 'ws:in',
       ...message,
     });

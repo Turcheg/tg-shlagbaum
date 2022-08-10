@@ -3,3 +3,9 @@ export const delay = (ms) => {
     setTimeout(r, ms);
   });
 };
+export const logctx = (ctx) => {
+  if(ctx?.update) {
+    return {...ctx.update};
+  }
+  return null;
+}
