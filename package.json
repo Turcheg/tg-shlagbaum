@@ -12,5 +12,15 @@
     "ewelink-api": "^3.1.1",
     "pino": "^8.4.0",
     "telegraf": "^4.8.6"
+  },
+  "prettier": {
+    "trailingComma": "es5",
+    "tabWidth": 2,
+    "semi": true,
+    "singleQuote": true,
+    "printWidth": 80,
+    "bracketSpacing": true,
+    "arrowParens": "always",
+    "endOfLine": "lf"
   }
 }
