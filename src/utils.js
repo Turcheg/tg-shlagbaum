@@ -9,3 +9,7 @@ export const logctx = (ctx) => {
   }
   return null;
 }
+export const seq = () => {
+  const timestamp = Math.floor(new Date() / 1000);
+  return Math.floor(timestamp * 1000)
+}

@@ -4,10 +4,8 @@ export default {
     password: process.env.EWELINK_PASSWORD,
     region: process.env.EWELINK_REGION,
     cmd_device_id: process.env.EWELINK_CMD_DEVICE_ID,
-    cmd_open_seq: process.env.EWELINK_CMD_OPEN_SEQ,
-    cmd_open_ch: process.env.EWELINK_CMD_OPEN_CH,
-    cmd_close_seq: process.env.EWELINK_CMD_CLOSE_SEQ,
-    cmd_close_ch: process.env.EWELINK_CMD_CLOSE_CH,
+    cmd_open_ch: process.env.EWELINK_CMD_OPEN_CH*1,
+    cmd_close_ch: process.env.EWELINK_CMD_CLOSE_CH*1,
   },
   tg: {
     token: process.env.BOT_TOKEN,

@@ -1,4 +1,4 @@
-import { delay, logctx } from './utils.js';
+import { delay, logctx, seq } from './utils.js';
 import { v4 as uuidv4 } from 'uuid';
 import ewelink from 'ewelink-api';
 import { Telegraf } from 'telegraf';
@@ -142,7 +142,7 @@ export default class App {
       deviceid: this.config.ewelink.cmd_device_id,
       apikey,
       userAgent: 'app',
-      sequence: this.config.ewelink.cmd_open_seq,
+      sequence: seq(),
       params: {
         cmd: 'transmit',
         rfChl: this.config.ewelink.cmd_open_ch,
@@ -172,7 +172,7 @@ export default class App {
       deviceid: this.config.ewelink.cmd_device_id,
       apikey,
       userAgent: 'app',
-      sequence: this.config.ewelink.cmd_close_seq,
+      sequence: seq(),
       params: {
         cmd: 'transmit',
         rfChl: this.config.ewelink.cmd_close_ch,
@@ -215,6 +215,7 @@ export default class App {
         payload,
       });
       await ws.send(JSON.stringify(payload));
+      await delay(1000);
       return ctx.reply('Команда отправлена');
     } catch (e) {
       l.error({
