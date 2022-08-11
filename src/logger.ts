@@ -1,5 +1,5 @@
 import pino from 'pino';
-function wrap(logger) {
+function wrap(logger:any) {
   const { error, child } = logger;
   function errorRearranger(...args) {
     if (typeof args[0] === 'string' && args.length > 1) {
@@ -24,6 +24,6 @@ function wrap(logger) {
   return logger;
 }
 
-export default function (opts) {
+export default function (opts):any {
   return wrap(pino(opts));
 }

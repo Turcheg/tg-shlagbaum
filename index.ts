@@ -1,6 +1,6 @@
 import getLogger from './src/logger.js';
-import config from './src/config.js';
-import App from './src/app.js';
+import config from './src/config';
+import App from './src/app';
 
 const logger = getLogger(config.logger);
 const app = new App(config, logger);

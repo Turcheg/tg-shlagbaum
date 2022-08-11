@@ -2,11 +2,22 @@
   "name": "tg-shlagbaum",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
   "type": "module",
+  "main": "index.js",
+  "types": "src/types.ts",
+  "tsup": {
+    "entry": [
+      "index.ts"
+    ],
+    "splitting": false,
+    "sourcemap": true,
+    "clean": true
+  },
   "scripts": {
+    "build": "tsup-node",
     "start": "node index.js",
-    "test": "node --inspect-brk='0.0.0.0' test.js"
+    "test": "jest",
+    "lint": "eslint ."
   },
   "author": "",
   "license": "ISC",
@@ -16,14 +27,19 @@
     "telegraf": "^4.8.6",
     "uuid": "^8.3.2"
   },
-  "prettier": {
-    "trailingComma": "es5",
-    "tabWidth": 2,
-    "semi": true,
-    "singleQuote": true,
-    "printWidth": 80,
-    "bracketSpacing": true,
-    "arrowParens": "always",
-    "endOfLine": "lf"
+  "devDependencies": {
+    "@babel/preset-typescript": "^7.18.6",
+    "@types/jest": "^28.1.6",
+    "@types/mocha": "^9.1.1",
+    "@types/uuid": "^8.3.4",
+    "@typescript-eslint/eslint-plugin": "^5.33.0",
+    "@typescript-eslint/parser": "^5.33.0",
+    "eslint": "^8.21.0",
+    "eslint-config-prettier": "^8.5.0",
+    "jest": "^28.1.3",
+    "mocha": "^10.0.0",
+    "ts-jest": "^28.0.7",
+    "tsup": "^6.2.1",
+    "typescript": "^4.7.4"
   }
 }
