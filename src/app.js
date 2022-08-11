@@ -214,6 +214,10 @@ export default class App {
         msg: 'Sending to device',
         payload,
       });
+      payload.sequence = seq();
+      await ws.send(JSON.stringify(payload));
+      await delay(750);
+      payload.sequence = seq();
       await ws.send(JSON.stringify(payload));
       await delay(1000);
       return ctx.reply('Команда отправлена');
