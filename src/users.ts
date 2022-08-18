@@ -6,7 +6,7 @@ export const PERMISSION_OPEN: UserPermission = 1;
 export const PERMISSION_CLOSE: UserPermission = 2;
 export const PERMISSION_ADDUSERS: UserPermission = 4;
 export const PERMISSION_REPORT: UserPermission = 8;
-export const PERMISSION_SUPERADMIN: UserPermission = 16;
+export const PERMISSION_SUPERADMIN: UserPermission = -1;
 
 const permissions: UserPermissionName[] = [
   [PERMISSION_OPEN, 'Открывать шлагбаум'],
@@ -33,6 +33,10 @@ export default class Users {
   }
 
   loadFromFile(): void {
+    this.l.trace({
+      msg: "Trying to load file",
+      filename: this.filename
+    })
     const json = fs.readFileSync(this.filename, {
       encoding: 'utf-8',
     });
@@ -87,7 +91,7 @@ export default class Users {
   }
 
   permissionsCan(permissions: number, permission: UserPermission): boolean {
-    if (permissions >= PERMISSION_SUPERADMIN) {
+    if (permissions === PERMISSION_SUPERADMIN) {
       return true;
     }
     if (!this.permValid(permission)) {

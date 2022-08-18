@@ -1,15 +1,21 @@
-import { delay, logctx, seq } from "./utils.js";
+import { delay, logctx, seq } from "./utils";
 import { v4 as uuidv4 } from "uuid";
 import ewelink from "ewelink-api";
 import { Context, Telegraf } from "telegraf";
-import { Config, LoggerInterface, UserPermission } from "./types.js";
+import {
+  Config,
+  LoggerInterface,
+  UserPermission,
+  EwelinkSocketMessage,
+} from "./types";
+import EventEmitter from "events";
 import Users, {
   PERMISSION_ADDUSERS,
   PERMISSION_CLOSE,
   PERMISSION_OPEN,
   PERMISSION_SUPERADMIN,
   PERMISSION_REPORT,
-} from "./users.js";
+} from "./users";
 
 interface AppState {
   inited: boolean;
@@ -30,14 +36,14 @@ interface AppState {
 interface EwelinkCommandPayload {
   action: string;
   deviceid: string;
-  apikey: string;
+  apikey?: string;
   userAgent: string;
-  sequence: number;
+  sequence?: string;
   params: {
     cmd: string;
     rfChl: number;
   };
-  selfApikey: string;
+  selfApikey?: string;
 }
 
 export default class App {
@@ -48,14 +54,18 @@ export default class App {
   ewelink_ws: any;
   bot: Telegraf;
   users: Users;
+  _socket: EventEmitter;
+  journal_tg_id: number;
 
   constructor(config: Config, logger: LoggerInterface) {
     this.config = config;
     this.l = logger;
+    this._socket = new EventEmitter();
     this.users = new Users(
       this.config.users_db_file,
       logger.child({ class: "Users" })
     );
+    this.journal_tg_id = this.config.tg.journal;
 
     this.state = {
       inited: false,
@@ -161,6 +171,36 @@ export default class App {
     });
   }
 
+  /**
+   * Запись в журнал важных событий
+   *
+   * @param type string - Открытие, закрытие
+   * @param ctx Context - контекст телеграм соощения
+   */
+  journal(type: string, ctx: Context, result: boolean): boolean {
+    if (this.journal_tg_id && ctx.message?.from?.id) {
+      let user_id = ctx.message.from.id;
+      let user = this.users.getUser(user_id);
+      let send = (m: string) =>
+        ctx.telegram.sendMessage(this.journal_tg_id, m, {
+          parse_mode: "HTML",
+        });
+      if (!user) {
+        send(
+          `Неизвестный пользователь пытается выполнить: <b>${type}</b>\n` +
+            `<pre>${JSON.stringify(logctx(ctx), null, 2)}</pre>`
+        );
+        return true;
+      }
+      send(
+        `Пользователь <a href="tg://user?id=${user.tg_id}">${user.name}</a> из <b>${user.address}</b> выполнил действие:\n` +
+          `<b><u>${type}</u></b> - ${result ? '<i>успешно</i>' : '<b>ОШИБКА</b>'}`
+      );
+      return true;
+    }
+    return false;
+  }
+
   async openGate(ctx: Context) {
     this.l.trace({
       msg: "open Gate initiated",
@@ -168,29 +208,19 @@ export default class App {
     });
     const socketPromise = this.getSocket();
     // @ts-ignore
-    let apikey = this.ewelink.apiKey;
-    if (!apikey) {
-      this.l.trace({
-        msg: "apikey is undefined, try to get new",
-        ctx: logctx(ctx),
-      });
-      await socketPromise;
-      // @ts-ignore
-      apikey = this.ewelink.apiKey;
-    }
     const payload: EwelinkCommandPayload = {
       action: "update",
       deviceid: this.config.ewelink.cmd_device_id,
-      apikey,
       userAgent: "app",
-      sequence: seq(),
       params: {
         cmd: "transmit",
         rfChl: this.config.ewelink.cmd_open_ch,
       },
-      selfApikey: apikey,
     };
-    await this.ewelinkCommand(ctx, payload);
+    const result = await this.ewelinkCommand(ctx, payload);
+    if (result) {
+      this.journal("Закрыть", ctx);
+    }
   }
 
   async closeGate(ctx: Context) {
@@ -198,34 +228,24 @@ export default class App {
       msg: "close Gate initiated",
       ctx: logctx(ctx),
     });
-    const socketPromise = this.getSocket();
-    // @ts-ignore
-    let apikey = this.ewelink.apiKey;
-    if (!apikey) {
-      this.l.trace({
-        msg: "apikey is undefined, try to get new",
-        ctx: logctx(ctx),
-      });
-      await socketPromise;
-      // @ts-ignore
-      apikey = this.ewelink.apiKey;
-    }
+
     const payload: EwelinkCommandPayload = {
       action: "update",
       deviceid: this.config.ewelink.cmd_device_id,
-      apikey,
       userAgent: "app",
-      sequence: seq(),
       params: {
         cmd: "transmit",
         rfChl: this.config.ewelink.cmd_close_ch,
       },
-      selfApikey: apikey,
     };
-    await this.ewelinkCommand(ctx, payload);
+    const result = await this.ewelinkCommand(ctx, payload);
+    this.journal("Закрыть", ctx, result);
   }
 
-  async ewelinkCommand(ctx: Context, payload: EwelinkCommandPayload) {
+  async ewelinkCommand(
+    ctx: Context,
+    payload: EwelinkCommandPayload
+  ): Promise<boolean> {
     const l = this.l.child({
       job_id: uuidv4(),
     });
@@ -235,48 +255,65 @@ export default class App {
       payload,
     });
 
-    let i = 0;
-
-    while (this.state.ewelink.status === "transmitting") {
-      l.info({
-        msg: "It busy",
-      });
-      await delay(100);
-      if (++i > 20) {
-        this.l.info({
-          msg: "Out of attemts - send busy to user",
-        });
-        return ctx.reply("Сейчас шлагбаум занят, повторите позже");
-      }
+    if (this.state.ewelink.status === "transmitting") {
+      ctx.reply("Сейчас шлагбаум занят, повторите позже");
+      return false;
     }
     this.state.ewelink.status = "transmitting";
     ctx.replyWithChatAction("typing");
-    const ws = await this.getSocket();
     try {
       l.info({
         msg: "Sending to device",
         payload,
       });
-      payload.sequence = seq();
-      await ws.send(JSON.stringify(payload));
-      await delay(750);
-      payload.sequence = seq();
-      await ws.send(JSON.stringify(payload));
-      await delay(1000);
-      return ctx.reply("Команда отправлена");
+
+      await this.wsSend(payload);
+      ctx.reply("Команда отправлена");
+      return true;
     } catch (e) {
-      l.error({
-        msg: "Exception",
-        e,
-      });
-      return ctx.reply("Не могу, что-то не так");
+      ctx.reply("Нет связи со шлагбаумом");
+      return false;
     } finally {
       this.state.ewelink.status = "available";
     }
   }
 
+  async wsSend(
+    payload: EwelinkCommandPayload,
+    timeout_ms: number = 5000
+  ): Promise<true> {
+    let ws = await this.getSocket();
+    let sequence = seq();
+    // @ts-ignore
+    payload.apikey = this.ewelink.apiKey;
+    payload.selfApikey = payload.apikey;
+    payload.sequence = sequence;
+
+    const response: Promise<true> = new Promise((res, rej) => {
+      this._socket.once(`seq:${sequence}`, (message: EwelinkSocketMessage) => {
+        if (message?.error === 0) {
+          res(true);
+        }
+        rej({
+          code: message?.error ?? -1,
+          message: `${message?.reason ?? "Unknown ewelink command error"}`,
+        });
+      });
+    });
+    await ws.send(JSON.stringify(payload));
+    const timeout: Promise<true> = new Promise((res, rej) => {
+      setTimeout(() => {
+        rej({
+          code: -2,
+          message: `${timeout_ms} Timeout`,
+        });
+      }, timeout_ms);
+    });
+    return Promise.race([response, timeout]);
+  }
+
   isAuthorized(tg_id: number, permission: UserPermission): boolean {
-    if(this.users.userCan(tg_id, PERMISSION_SUPERADMIN)) {
+    if (this.users.userCan(tg_id, PERMISSION_SUPERADMIN)) {
       return true;
     }
     return this.users.userCan(tg_id, permission);
@@ -321,17 +358,27 @@ export default class App {
     throw new Error("Unable to get socket");
   }
 
-  ewelinkWsCallback(message: string | object) {
+  ewelinkWsCallback(message: string | EwelinkSocketMessage) {
     if (typeof message === "string") {
       this.l.info({
         msg: "ws:in",
         str: message,
       });
+      this._socket.emit("message", message);
     } else {
       this.l.info({
         msg: "ws:in",
         ...message,
       });
+      if (message?.sequence) {
+        this._socket.emit(`seq:${message.sequence}`, message);
+      }
+      if (message?.error && message?.error > 0) {
+        this._socket.emit(`err`, message);
+      }
+      if (message?.action) {
+        this._socket.emit(`action:${message.action}`, message);
+      }
     }
     return;
   }

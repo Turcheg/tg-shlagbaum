@@ -1,9 +1,18 @@
 import { Logger, LoggerOptions } from "pino";
 
-
-export type UserPermission = 1 | 2 | 4 | 8 | 16;
+export type UserPermission = 1 | 2 | 4 | 8 | -1;
 export type UserPermissionName = [UserPermission, string];
-export type UserDbElement = [number, string, string, number];
+export type UserFieldTgId = number;
+export type UserFieldName = string;
+export type UserFieldAddress = string;
+export type UserFieldPermissions = number;
+
+export type UserDbElement = [
+  UserFieldTgId,
+  UserFieldName,
+  UserFieldAddress,
+  UserFieldPermissions
+];
 export type UserDbElements = UserDbElement[];
 export interface User {
   tg_id: number;
@@ -21,7 +30,7 @@ export interface EwelinkConfig {
 }
 export interface TgConfig {
   token: string;
-  chat_id: string;
+  journal: number;
 }
 export interface Config {
   ewelink: EwelinkConfig;
@@ -39,4 +48,12 @@ export interface LoggerNoop {
   child: () => LoggerNoop;
 }
 
-export type LoggerInterface = Logger |  LoggerNoop;
+export type LoggerInterface = Logger | LoggerNoop;
+
+
+export interface EwelinkSocketMessage {
+  action?: string;
+  error?: number;
+  sequence?: string;
+  reason?: string;
+}

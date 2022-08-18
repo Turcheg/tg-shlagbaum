@@ -19,7 +19,7 @@ const config: Config = {
   },
   tg: {
     token: getenv('BOT_TOKEN'),
-    chat_id: getenv('CHAT_ID'),
+    journal: Number(getenv('JOURNAL_TG_ID')),
   },
   users_db_file: getenv('USERS_DB_FILE'),
   users: getenv('USERS'),

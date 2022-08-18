@@ -1,4 +1,4 @@
-import getLogger from './src/logger.js';
+import getLogger from './src/logger';
 import config from './src/config';
 import App from './src/app';
 
@@ -16,3 +16,5 @@ const app = new App(config, logger);
     process.exit(1);
   }
 })();
+
+export default {}

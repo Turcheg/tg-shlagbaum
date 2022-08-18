@@ -12,7 +12,7 @@ export const logctx = (ctx:Context): Update | null => {
   }
   return null;
 }
-export const seq = ():number => {
+export const seq = ():string => {
   const timestamp = Math.floor( Number(new Date()) / 1000);
-  return Math.floor(timestamp * 1000)
+  return String(Math.floor(timestamp * 1000))
 }
