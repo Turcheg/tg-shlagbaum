@@ -24,8 +24,25 @@ export default class Users {
     this.filename = filename;
     this.l = logger;
     this.db = new Map();
+    const abort = new AbortController();
     try {
       this.loadFromFile();
+      const watcher = fs.watch(this.filename, {
+        persistent: true,
+        signal: abort.signal
+      });
+      watcher.on('change', () => {
+        try {
+          this.loadFromFile();
+        } catch (e) {
+        }
+      });
+      process.once("SIGINT", () => {
+        abort.abort();
+      });
+      process.once("SIGTERM", () => {
+        abort.abort();
+      });
     } catch (e) {
       this.l.error('Error in Users.constructor', e);
       throw e;
