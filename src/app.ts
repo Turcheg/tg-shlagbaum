@@ -219,7 +219,7 @@ export default class App {
     };
     const result = await this.ewelinkCommand(ctx, payload);
     if (result) {
-      this.journal("Закрыть", ctx);
+      this.journal("Закрыть", ctx, result);
     }
   }
 
