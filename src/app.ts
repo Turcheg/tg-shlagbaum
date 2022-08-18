@@ -65,6 +65,15 @@ export default class App {
       this.config.users_db_file,
       logger.child({ class: "Users" })
     );
+    this.users.events.on("load", ({ before, after }) => {
+      if (before) {
+        this.sysJournal(
+          `<b>Изменена база данных</b>\n` +
+            `Было: <b>${before}</b>\n` +
+            `Стало: <b>${after}</b>`
+        );
+      }
+    });
     this.journal_tg_id = this.config.tg.journal;
 
     this.state = {
@@ -193,9 +202,24 @@ export default class App {
         return true;
       }
       send(
-        `Пользователь <a href="tg://user?id=${user.tg_id}">${user.name}</a> из <b>${user.address}</b> выполнил действие:\n` +
-          `<b><u>${type}</u></b> - ${result ? '<i>успешно</i>' : '<b>ОШИБКА</b>'}`
+        `Пользователь <a href="tg://user?id=${user.tg_id}">${user.name}</a>` +
+          ` из <b>${user.address}</b> выполнил действие:\n` +
+          `<b><u>${type}</u></b> - ${
+            result ? "<i>успешно</i>" : "<b>ОШИБКА</b>"
+          }`
       );
+      return true;
+    }
+    return false;
+  }
+  sysJournal(message: string): boolean {
+    if (this.journal_tg_id) {
+      let send = (m: string) => {
+        this.bot.telegram.sendMessage(this.journal_tg_id, m, {
+          parse_mode: "HTML",
+        });
+      };
+      send(`<u>системное сообщение</u>\n` + message);
       return true;
     }
     return false;

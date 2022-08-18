@@ -1,6 +1,12 @@
-import fs from 'fs';
-
-import { UserPermission, UserPermissionName, User, UserDbElements } from './types';
+import fs from "fs";
+import EventEmitter from "events";
+import debounce from "lodash/debounce";
+import {
+  UserPermission,
+  UserPermissionName,
+  User,
+  UserDbElements,
+} from "./types";
 
 export const PERMISSION_OPEN: UserPermission = 1;
 export const PERMISSION_CLOSE: UserPermission = 2;
@@ -9,34 +15,36 @@ export const PERMISSION_REPORT: UserPermission = 8;
 export const PERMISSION_SUPERADMIN: UserPermission = -1;
 
 const permissions: UserPermissionName[] = [
-  [PERMISSION_OPEN, 'Открывать шлагбаум'],
-  [PERMISSION_CLOSE, 'Закрывать шлагбаум'],
-  [PERMISSION_ADDUSERS, 'Добавлять пользователей шлагбаум'],
-  [PERMISSION_REPORT, 'Получать отчеты'],
-  [PERMISSION_SUPERADMIN, 'Суперадмин'],
+  [PERMISSION_OPEN, "Открывать шлагбаум"],
+  [PERMISSION_CLOSE, "Закрывать шлагбаум"],
+  [PERMISSION_ADDUSERS, "Добавлять пользователей шлагбаум"],
+  [PERMISSION_REPORT, "Получать отчеты"],
+  [PERMISSION_SUPERADMIN, "Суперадмин"],
 ];
 
 export default class Users {
   l: any;
   filename: string;
   db: Map<number, User>;
+  events: EventEmitter;
   constructor(filename: string, logger: any) {
     this.filename = filename;
     this.l = logger;
     this.db = new Map();
+    this.events = new EventEmitter();
     const abort = new AbortController();
     try {
       this.loadFromFile();
       const watcher = fs.watch(this.filename, {
         persistent: true,
-        signal: abort.signal
+        signal: abort.signal,
       });
-      watcher.on('change', () => {
+      const debounced = debounce((eventType: string) => {
         try {
           this.loadFromFile();
-        } catch (e) {
-        }
-      });
+        } catch (e) {}
+      }, 100);
+      watcher.on("change", debounced);
       process.once("SIGINT", () => {
         abort.abort();
       });
@@ -44,7 +52,7 @@ export default class Users {
         abort.abort();
       });
     } catch (e) {
-      this.l.error('Error in Users.constructor', e);
+      this.l.error("Error in Users.constructor", e);
       throw e;
     }
   }
@@ -52,20 +60,26 @@ export default class Users {
   loadFromFile(): void {
     this.l.trace({
       msg: "Trying to load file",
-      filename: this.filename
-    })
+      filename: this.filename,
+    });
     const json = fs.readFileSync(this.filename, {
-      encoding: 'utf-8',
+      encoding: "utf-8",
     });
     const cont: UserDbElements = JSON.parse(json);
     if (!Array.isArray(cont)) {
-      throw new Error('Parsed JSON string is not array');
+      throw new Error("Parsed JSON string is not array");
     }
+    const before = this.db.size;
     this.db.clear();
     for (let i = 0, to = cont.length; i < to; i++) {
       const [tg_id, name, address, permissions] = cont[i];
       this.db.set(tg_id, { tg_id, name, address, permissions });
     }
+    const after = this.db.size;
+    this.events.emit("load", {
+      before,
+      after,
+    });
     return;
   }
 
@@ -74,9 +88,9 @@ export default class Users {
     this.db.forEach((v) => {
       arr.push([v.tg_id, v.name, v.address, v.permissions]);
     });
-    let cont: string = '';
+    let cont: string = "";
     if (pretty) {
-      cont = JSON.stringify(arr, null, '  ');
+      cont = JSON.stringify(arr, null, "  ");
     } else {
       cont = JSON.stringify(arr);
     }
@@ -112,7 +126,7 @@ export default class Users {
       return true;
     }
     if (!this.permValid(permission)) {
-      throw new Error('Permission is not valid');
+      throw new Error("Permission is not valid");
     }
     return (permissions & permission) > 0;
   }
@@ -138,6 +152,6 @@ export default class Users {
   }
 
   getUser(tg_id: number): User | undefined {
-    return this.db.get(tg_id)
+    return this.db.get(tg_id);
   }
 }
