@@ -24,11 +24,11 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // index.ts
-var app_exports = {};
-__export(app_exports, {
-  default: () => app_default
+var tg_shlagbaum_exports = {};
+__export(tg_shlagbaum_exports, {
+  default: () => tg_shlagbaum_default
 });
-module.exports = __toCommonJS(app_exports);
+module.exports = __toCommonJS(tg_shlagbaum_exports);
 
 // src/logger.ts
 var import_pino = __toESM(require("pino"));
@@ -62,7 +62,7 @@ function logger_default(opts) {
 
 // src/config.ts
 var getenv = (key) => {
-  let ret = process.env[key];
+  const ret = process.env[key];
   if (ret !== void 0) {
     return ret;
   }
@@ -110,10 +110,12 @@ var seq = () => {
 var import_uuid = require("uuid");
 var import_ewelink_api = __toESM(require("ewelink-api"));
 var import_telegraf = require("telegraf");
-var import_events = __toESM(require("events"));
+var import_events2 = __toESM(require("events"));
 
 // src/users.ts
 var import_fs = __toESM(require("fs"));
+var import_events = __toESM(require("events"));
+var import_debounce = __toESM(require("lodash/debounce"));
 var PERMISSION_OPEN = 1;
 var PERMISSION_CLOSE = 2;
 var PERMISSION_ADDUSERS = 4;
@@ -131,8 +133,27 @@ var Users = class {
     this.filename = filename;
     this.l = logger2;
     this.db = /* @__PURE__ */ new Map();
+    this.events = new import_events.default();
+    const abort = new AbortController();
     try {
       this.loadFromFile();
+      const watcher = import_fs.default.watch(this.filename, {
+        persistent: true,
+        signal: abort.signal
+      });
+      const debounced = (0, import_debounce.default)((eventType) => {
+        try {
+          this.loadFromFile();
+        } catch (e) {
+        }
+      }, 100);
+      watcher.on("change", debounced);
+      process.once("SIGINT", () => {
+        abort.abort();
+      });
+      process.once("SIGTERM", () => {
+        abort.abort();
+      });
     } catch (e) {
       this.l.error("Error in Users.constructor", e);
       throw e;
@@ -150,15 +171,21 @@ var Users = class {
     if (!Array.isArray(cont)) {
       throw new Error("Parsed JSON string is not array");
     }
+    const before = this.db.size;
     this.db.clear();
     for (let i = 0, to = cont.length; i < to; i++) {
       const [tg_id, name, address, permissions2] = cont[i];
       this.db.set(tg_id, { tg_id, name, address, permissions: permissions2 });
     }
+    const after = this.db.size;
+    this.events.emit("load", {
+      before,
+      after
+    });
     return;
   }
   saveToFile(pretty = true) {
-    let arr = [];
+    const arr = [];
     this.db.forEach((v) => {
       arr.push([v.tg_id, v.name, v.address, v.permissions]);
     });
@@ -179,9 +206,9 @@ var Users = class {
     if (!user) {
       return [];
     }
-    let user_permissions = user.permissions;
+    const user_permissions = user.permissions;
     return this.getAllPermissions().filter((per) => {
-      let [permission] = per;
+      const [permission] = per;
       return this.permissionsCan(user_permissions, permission);
     });
   }
@@ -223,11 +250,20 @@ var App = class {
   constructor(config2, logger2) {
     this.config = config2;
     this.l = logger2;
-    this._socket = new import_events.default();
+    this._socket = new import_events2.default();
     this.users = new Users(
       this.config.users_db_file,
       logger2.child({ class: "Users" })
     );
+    this.users.events.on("load", ({ before, after }) => {
+      if (before) {
+        this.sysJournal(
+          `<b>\u0418\u0437\u043C\u0435\u043D\u0435\u043D\u0430 \u0431\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445</b>
+\u0411\u044B\u043B\u043E: <b>${before}</b>
+\u0421\u0442\u0430\u043B\u043E: <b>${after}</b>`
+        );
+      }
+    });
     this.journal_tg_id = this.config.tg.journal;
     this.state = {
       inited: false,
@@ -331,9 +367,9 @@ var App = class {
   journal(type, ctx, result) {
     var _a, _b;
     if (this.journal_tg_id && ((_b = (_a = ctx.message) == null ? void 0 : _a.from) == null ? void 0 : _b.id)) {
-      let user_id = ctx.message.from.id;
-      let user = this.users.getUser(user_id);
-      let send = (m) => ctx.telegram.sendMessage(this.journal_tg_id, m, {
+      const user_id = ctx.message.from.id;
+      const user = this.users.getUser(user_id);
+      const send = (m) => ctx.telegram.sendMessage(this.journal_tg_id, m, {
         parse_mode: "HTML"
       });
       if (!user) {
@@ -351,12 +387,25 @@ var App = class {
     }
     return false;
   }
+  sysJournal(message) {
+    if (this.journal_tg_id) {
+      const send = (m) => {
+        this.bot.telegram.sendMessage(this.journal_tg_id, m, {
+          parse_mode: "HTML"
+        });
+      };
+      send(`<u>\u0441\u0438\u0441\u0442\u0435\u043C\u043D\u043E\u0435 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435</u>
+` + message);
+      return true;
+    }
+    return false;
+  }
   async openGate(ctx) {
     this.l.trace({
       msg: "open Gate initiated",
       ctx: logctx(ctx)
     });
-    const socketPromise = this.getSocket();
+    await this.getSocket();
     const payload = {
       action: "update",
       deviceid: this.config.ewelink.cmd_device_id,
@@ -367,9 +416,7 @@ var App = class {
       }
     };
     const result = await this.ewelinkCommand(ctx, payload);
-    if (result) {
-      this.journal("\u0417\u0430\u043A\u0440\u044B\u0442\u044C", ctx);
-    }
+    this.journal("\u041E\u0442\u043A\u0440\u044B\u0442\u044C", ctx, result);
   }
   async closeGate(ctx) {
     this.l.trace({
@@ -419,8 +466,8 @@ var App = class {
     }
   }
   async wsSend(payload, timeout_ms = 5e3) {
-    let ws = await this.getSocket();
-    let sequence = seq();
+    const ws = await this.getSocket();
+    const sequence = seq();
     payload.apikey = this.ewelink.apiKey;
     payload.selfApikey = payload.apikey;
     payload.sequence = sequence;
@@ -528,7 +575,7 @@ var app = new App(config_default, logger);
     process.exit(1);
   }
 })();
-var app_default = {};
+var tg_shlagbaum_default = {};
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {});
 //# sourceMappingURL=index.js.map

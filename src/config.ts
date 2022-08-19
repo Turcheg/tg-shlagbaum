@@ -1,7 +1,7 @@
 import { Config } from "./types";
 
 const getenv = (key:string):string => {
-  let ret = process.env[key];
+  const ret = process.env[key];
   if(ret !== undefined) {
     return ret;
   }

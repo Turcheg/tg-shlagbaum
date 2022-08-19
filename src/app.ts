@@ -188,9 +188,9 @@ export default class App {
    */
   journal(type: string, ctx: Context, result: boolean): boolean {
     if (this.journal_tg_id && ctx.message?.from?.id) {
-      let user_id = ctx.message.from.id;
-      let user = this.users.getUser(user_id);
-      let send = (m: string) =>
+      const  user_id = ctx.message.from.id;
+      const user = this.users.getUser(user_id);
+      const send = (m: string) =>
         ctx.telegram.sendMessage(this.journal_tg_id, m, {
           parse_mode: "HTML",
         });
@@ -214,7 +214,7 @@ export default class App {
   }
   sysJournal(message: string): boolean {
     if (this.journal_tg_id) {
-      let send = (m: string) => {
+      const send = (m: string) => {
         this.bot.telegram.sendMessage(this.journal_tg_id, m, {
           parse_mode: "HTML",
         });
@@ -230,7 +230,7 @@ export default class App {
       msg: "open Gate initiated",
       ctx: logctx(ctx),
     });
-    const socketPromise = this.getSocket();
+    await this.getSocket();
     // @ts-ignore
     const payload: EwelinkCommandPayload = {
       action: "update",
@@ -302,10 +302,10 @@ export default class App {
 
   async wsSend(
     payload: EwelinkCommandPayload,
-    timeout_ms: number = 5000
+    timeout_ms = 5000
   ): Promise<true> {
-    let ws = await this.getSocket();
-    let sequence = seq();
+    const ws = await this.getSocket();
+    const sequence = seq();
     // @ts-ignore
     payload.apikey = this.ewelink.apiKey;
     payload.selfApikey = payload.apikey;

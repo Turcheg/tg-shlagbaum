@@ -42,7 +42,9 @@ export default class Users {
       const debounced = debounce((eventType: string) => {
         try {
           this.loadFromFile();
-        } catch (e) {}
+        } catch (e) {
+          //do nothing
+        }
       }, 100);
       watcher.on("change", debounced);
       process.once("SIGINT", () => {
@@ -83,12 +85,12 @@ export default class Users {
     return;
   }
 
-  saveToFile(pretty: boolean = true): void {
-    let arr: UserDbElements = [];
+  saveToFile(pretty = true): void {
+    const arr: UserDbElements = [];
     this.db.forEach((v) => {
       arr.push([v.tg_id, v.name, v.address, v.permissions]);
     });
-    let cont: string = "";
+    let cont = "";
     if (pretty) {
       cont = JSON.stringify(arr, null, "  ");
     } else {
@@ -107,9 +109,9 @@ export default class Users {
     if (!user) {
       return [];
     }
-    let user_permissions = user.permissions;
+    const user_permissions = user.permissions;
     return this.getAllPermissions().filter((per) => {
-      let [permission] = per;
+      const [permission] = per;
       return this.permissionsCan(user_permissions, permission);
     });
   }
