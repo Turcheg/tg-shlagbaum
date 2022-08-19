@@ -13,7 +13,7 @@ const assets_path = path.resolve(__dirname, '../tests/assets');
 describe('User class tests', function () {
   let users: Users;
   beforeAll(function () {
-    users = new Users(path.resolve(assets_path, 'users.json'), logger_noop);
+    users = new Users(path.resolve(assets_path, 'users.json'), logger_noop, false);
   });
   it('Should initiate class without exceptions', function () {
     expect(users).toBeInstanceOf(Users);

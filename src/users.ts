@@ -27,7 +27,7 @@ export default class Users {
   filename: string;
   db: Map<number, User>;
   events: EventEmitter;
-  constructor(filename: string, logger: any) {
+  constructor(filename: string, logger: any, do_watch = true) {
     this.filename = filename;
     this.l = logger;
     this.db = new Map();
@@ -35,24 +35,26 @@ export default class Users {
     const abort = new AbortController();
     try {
       this.loadFromFile();
-      const watcher = fs.watch(this.filename, {
-        persistent: true,
-        signal: abort.signal,
-      });
-      const debounced = debounce((eventType: string) => {
-        try {
-          this.loadFromFile();
-        } catch (e) {
-          //do nothing
-        }
-      }, 100);
-      watcher.on("change", debounced);
-      process.once("SIGINT", () => {
-        abort.abort();
-      });
-      process.once("SIGTERM", () => {
-        abort.abort();
-      });
+      if(do_watch) {
+        const watcher = fs.watch(this.filename, {
+          persistent: true,
+          signal: abort.signal,
+        })
+        const debounced = debounce((eventType: string) => {
+          try {
+            this.loadFromFile();
+          } catch (e) {
+            //do nothing
+          }
+        }, 100);
+        watcher.on("change", debounced);
+        process.once("SIGINT", () => {
+          abort.abort();
+        });
+        process.once("SIGTERM", () => {
+          abort.abort();
+        });
+      }
     } catch (e) {
       this.l.error("Error in Users.constructor", e);
       throw e;
@@ -110,7 +112,7 @@ export default class Users {
       return [];
     }
     const user_permissions = user.permissions;
-    return this.getAllPermissions().filter((per) => {
+    return this.getAllPermissions().filter(v => v[0] > 0).filter((per) => {
       const [permission] = per;
       return this.permissionsCan(user_permissions, permission);
     });
