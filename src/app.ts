@@ -242,9 +242,7 @@ export default class App {
       },
     };
     const result = await this.ewelinkCommand(ctx, payload);
-    if (result) {
-      this.journal("Закрыть", ctx, result);
-    }
+    this.journal("Открыть", ctx, result);
   }
 
   async closeGate(ctx: Context) {
