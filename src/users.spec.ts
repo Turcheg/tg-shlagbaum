@@ -1,7 +1,7 @@
 import Users, {
   PERMISSION_OPEN,
   PERMISSION_CLOSE,
-  PERMISSION_ADDUSERS,
+  PERMISSION_MANAGEUSERS,
   PERMISSION_REPORT,
   PERMISSION_SUPERADMIN,
 } from './users';
@@ -27,7 +27,7 @@ describe('User class tests', function () {
     const shouldHave = [
       PERMISSION_OPEN,
       PERMISSION_CLOSE,
-      PERMISSION_ADDUSERS,
+      PERMISSION_MANAGEUSERS,
       PERMISSION_REPORT,
       PERMISSION_SUPERADMIN,
     ];

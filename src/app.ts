@@ -2,15 +2,17 @@ import { delay, logctx, seq } from "./utils";
 import { v4 as uuidv4 } from "uuid";
 import ewelink from "ewelink-api";
 import { Context, Telegraf } from "telegraf";
+import AdminSession from './admin-session'
 import {
   Config,
   LoggerInterface,
   UserPermission,
   EwelinkSocketMessage,
+  UserFieldTgId,
 } from "./types";
 import EventEmitter from "events";
 import Users, {
-  PERMISSION_ADDUSERS,
+  PERMISSION_MANAGEUSERS,
   PERMISSION_CLOSE,
   PERMISSION_OPEN,
   PERMISSION_SUPERADMIN,
@@ -56,6 +58,7 @@ export default class App {
   users: Users;
   _socket: EventEmitter;
   journal_tg_id: number;
+  admin_sessions: Map<UserFieldTgId, AdminSession>;
 
   constructor(config: Config, logger: LoggerInterface) {
     this.config = config;
@@ -65,6 +68,7 @@ export default class App {
       this.config.users_db_file,
       logger.child({ class: "Users" })
     );
+    this.admin_sessions = new Map();
     this.users.events.on("load", ({ before, after }) => {
       if (before) {
         this.sysJournal(
@@ -146,6 +150,18 @@ export default class App {
           `/myid - узнать персональный номер/шахсий номеризни билиш\n` +
           `<b>ВАЖНО!!! Перед закрытием визуально убедитесь, что нет помех.</b>`
       );
+      const user_tg_id = ctx.message.from.id;
+      const admin_commands = [];
+
+      if (this.users.userCan(user_tg_id, PERMISSION_MANAGEUSERS)) {
+        admin_commands.push(`/listusers - получить список пользователей`);
+        admin_commands.push(`/adduser - добавить пользователя`);
+        admin_commands.push(`/deluser - удалить пользователя`);
+        admin_commands.push(`/edituser - редактировать пользователя`);
+        ctx.replyWithHTML(
+          `Для Вас также доступно:\n` + admin_commands.join("\n")
+        );
+      }
     });
     this.bot.command("myid", (ctx) => {
       this.l.trace({
@@ -178,6 +194,43 @@ export default class App {
       }
       this.closeGate(ctx);
     });
+
+    const admin_commands_handler = async (command: string, ctx: Context) => {
+      this.l.trace({
+        msg: `Incoming /${command} command from admin`,
+      });
+      const user_tg_id = ctx.message?.from.id;
+      if (user_tg_id === undefined) {
+        return;
+      }
+      if (!this.users.userCan(user_tg_id, PERMISSION_MANAGEUSERS)) {
+        ctx.reply("У вас нет прав");
+        return;
+      }
+      if (!this.admin_sessions.has(user_tg_id)) {
+        const session = new AdminSession(
+          this,
+          user_tg_id,
+          this.l.child({ class: "AdminSession" })
+        );
+        this.admin_sessions.set(user_tg_id, session);
+      }
+      this.admin_sessions.get(user_tg_id).initSession(command, ctx)
+    }
+
+    this.bot.command("listusers", (ctx: Context) => admin_commands_handler("listusers", ctx));
+    this.bot.command("adduser", (ctx: Context) => admin_commands_handler("adduser", ctx));
+    this.bot.command("deluser", (ctx: Context) => admin_commands_handler("deluser", ctx));
+    this.bot.command("edituser", (ctx: Context) => admin_commands_handler("edituser", ctx));
+    this.bot.on('text', (ctx: Context) => {
+      const user_tg_id = ctx.message?.from.id;
+      if (user_tg_id === undefined) {
+        return;
+      }
+      if (this.admin_sessions.has(user_tg_id)) {
+        this.admin_sessions.get(user_tg_id).udpateSession(ctx);
+      }
+    });
   }
 
   /**
@@ -188,7 +241,7 @@ export default class App {
    */
   journal(type: string, ctx: Context, result: boolean): boolean {
     if (this.journal_tg_id && ctx.message?.from?.id) {
-      const  user_id = ctx.message.from.id;
+      const user_id = ctx.message.from.id;
       const user = this.users.getUser(user_id);
       const send = (m: string) =>
         ctx.telegram.sendMessage(this.journal_tg_id, m, {

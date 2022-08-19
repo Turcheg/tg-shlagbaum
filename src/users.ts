@@ -10,14 +10,14 @@ import {
 
 export const PERMISSION_OPEN: UserPermission = 1;
 export const PERMISSION_CLOSE: UserPermission = 2;
-export const PERMISSION_ADDUSERS: UserPermission = 4;
+export const PERMISSION_MANAGEUSERS: UserPermission = 4;
 export const PERMISSION_REPORT: UserPermission = 8;
 export const PERMISSION_SUPERADMIN: UserPermission = -1;
 
 const permissions: UserPermissionName[] = [
   [PERMISSION_OPEN, "Открывать шлагбаум"],
   [PERMISSION_CLOSE, "Закрывать шлагбаум"],
-  [PERMISSION_ADDUSERS, "Добавлять пользователей шлагбаум"],
+  [PERMISSION_MANAGEUSERS, "Управление пользователями шлагбаума"],
   [PERMISSION_REPORT, "Получать отчеты"],
   [PERMISSION_SUPERADMIN, "Суперадмин"],
 ];

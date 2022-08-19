@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "types": "src/types.ts",
+  "types": "src/types.d.ts",
   "tsup": {
     "entry": [
       "index.ts"
